@@ -7,6 +7,11 @@ const char *source_files[] = {
     NULL
 };
 
+const char *extra_warnings[] = {
+    // "error",
+    NULL
+};
+
 int main(int argc, char *argv[])
 {
     compile_info_t info = {
@@ -15,7 +20,7 @@ int main(int argc, char *argv[])
         .optimisations = "2",
 
         .source_files = source_files,
-        .warnings = nice_warnings,
+        .warnings = merge(nice_warnings, extra_warnings),
     };
 
     int res;

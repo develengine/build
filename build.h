@@ -21,6 +21,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <stdarg.h>
+#include <assert.h>
 
 #ifndef NO_DATA
 
@@ -227,7 +228,7 @@ static inline pid_t execute_v(const char *fmt, va_list args)
     }
 
     if (pid == 0) {
-         execl("/bin/sh", "sh", "-c", buffer, NULL);
+        execl("/bin/sh", "sh", "-c", buffer, NULL);
 
         fprintf(stderr, "execve(): %s\n", strerror(errno));
         exit(EXIT_FAILURE);
@@ -278,6 +279,34 @@ static inline int contains(const char *str, int argc, char *argv[])
     }
 
     return 0;
+}
+
+static inline const char **merge(const char *arr_1[], const char *arr_2[])
+{
+    int size = 1;
+
+    for (int i = 0; arr_1[i]; ++i, ++size)
+        ;;
+
+    for (int i = 0; arr_2[i]; ++i, ++size)
+        ;;
+
+    const char **new_arr = malloc(size * sizeof(const char *));
+    assert(new_arr);
+
+    int pos = 0;
+
+    for (int i = 0; arr_1[i]; ++i, ++pos) {
+        new_arr[pos] = arr_1[i];
+    }
+
+    for (int i = 0; arr_2[i]; ++i, ++pos) {
+        new_arr[pos] = arr_2[i];
+    }
+
+    new_arr[pos] = NULL;
+
+    return new_arr;
 }
 
 #endif // BUILD_H_
