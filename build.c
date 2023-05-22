@@ -1,5 +1,6 @@
 #include "build.h"
 
+
 const char *out = "program";
 
 const char *source_files[] = {
@@ -20,16 +21,22 @@ int main(int argc, char *argv[])
         .optimisations = "2",
 
         .source_files = source_files,
-        .warnings = merge(nice_warnings, extra_warnings),
+        .warnings = nice_warnings,
     };
 
-    int res;
-    if ((res = compile_w(info)))
+    int res = compile_w(info);
+    if (res)
         return res;
+
 
     if (contains("run", argc, argv)) {
         printf("./%s:\n", out);
+
+#ifdef _WIN32
+        return execute_w("%s.exe", out);
+#else
         return execute_w("./%s", out);
+#endif // _WIN32
     }
 
     return 0;
