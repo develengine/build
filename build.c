@@ -63,13 +63,10 @@ int main(int argc, char *argv[])
         return execute_argv_w(argv);
     }
 
-
     mod_data_load(&mod_data, NULL);
-
-    build(argc, argv);
-
+    int res = build(argc, argv);
     mod_data_store(&mod_data, NULL);
 
-    return 0;
+    return res;
 }
 
