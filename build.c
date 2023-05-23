@@ -13,7 +13,9 @@ const char *extra_warnings[] = {
     NULL
 };
 
-int main(int argc, char *argv[])
+mod_data_t mod_data = {0};
+
+int build(int argc, char *argv[])
 {
     compile_info_t info = {
         .output = out,
@@ -38,6 +40,24 @@ int main(int argc, char *argv[])
         return execute_w("./%s", out);
 #endif // _WIN32
     }
+}
+
+int main(int argc, char *argv[])
+{
+    mod_data_load(&mod_data, NULL);
+
+    if (updated(&mod_data, "build.c")) {
+        printf("updated: build.c\n");
+    }
+
+    if (updated(&mod_data, "build.h")) {
+        printf("updated: build.h\n");
+    }
+
+    build(argc, argv);
+
+    mod_data_store(&mod_data, NULL);
 
     return 0;
 }
+

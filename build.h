@@ -24,6 +24,7 @@
 
 #ifndef _WIN32
     #include <sys/wait.h>
+    #include <sys/stat.h>
     #include <unistd.h>
 #else
     #include <windows.h>
@@ -70,6 +71,104 @@ typedef struct
 
 } compile_info_t;
 
+// NOTE: Opaque because of platform reasons.
+typedef struct timespec file_time_t;
+
+typedef struct
+{
+    const char **paths;
+    file_time_t *times;
+
+    int count, capacity;
+} mod_data_t;
+
+typedef struct
+{
+    int count;
+    int str_size;
+} mod_data_header_t;
+
+
+static inline void mod_data_load(mod_data_t *mod_data, const char *path)
+{
+    if (!path)
+        path = "build.data";
+
+    FILE *file = fopen(path, "rb");
+
+    if (!file) {
+        *mod_data = (mod_data_t) {0};
+        printf("No mod file '%s'. Ignoring...\n", path);
+        return;
+    }
+
+    mod_data_header_t header;
+
+    assert(fread(&header, 1, sizeof(header), file) == sizeof(header));
+
+    mod_data->paths = malloc(header.count * sizeof(const char *));
+    assert(mod_data->paths);
+
+    int time_size = header.count * sizeof(file_time_t);
+
+    mod_data->times = malloc(time_size);
+    assert(mod_data->times);
+
+    char *string_storage = malloc(header.str_size);
+    assert(string_storage);
+
+    mod_data->count = header.count;
+    mod_data->capacity = header.count;
+
+    assert(fread(mod_data->times, 1, time_size, file) == time_size);
+
+    assert(fread(string_storage, 1, header.str_size, file) == header.str_size);
+
+    for (int i = 0, pos = 0, start = 0; i < header.str_size; ++i) {
+        if (string_storage[i] == '\0') {
+            mod_data->paths[pos++] = string_storage + start;
+            start = i + 1;
+        }
+    }
+
+    if (fgetc(file) != EOF) {
+        fprintf(stderr, "Could not parse mod data from file '%s'!\n", path);
+        exit(666);
+    }
+
+    fclose(file);
+}
+
+static inline void mod_data_store(mod_data_t *mod_data, const char *path)
+{
+    if (!path)
+        path = "build.data";
+
+    FILE *file = fopen(path, "wb");
+    if (!file) {
+        fprintf(stderr, "fopen(): %s\n", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
+    mod_data_header_t header = { .count = mod_data->count };
+
+    for (int i = 0; i < mod_data->count; ++i) {
+        header.str_size += strlen(mod_data->paths[i]) + 1;
+    }
+
+    assert(fwrite(&header, 1, sizeof(header), file) == sizeof(header));
+
+    int time_size = mod_data->count * sizeof(file_time_t);
+    assert(fwrite(mod_data->times, 1, time_size, file) == time_size);
+
+    for (int i = 0; i < mod_data->count; ++i) {
+        const char *path = mod_data->paths[i];
+        int len0 = strlen(path) + 1;
+
+        assert(fwrite(path, 1, len0, file) == len0);
+    }
+}
+
 static inline int buffer_append(char *buffer, int pos, const char *str)
 {
     int str_len = 0;
@@ -89,6 +188,107 @@ static inline int buffer_append(char *buffer, int pos, const char *str)
 
     return pos + str_len;
 }
+
+static inline int file_time_cmp(file_time_t a, file_time_t b)
+{
+    int res = (a.tv_sec > b.tv_sec) - (a.tv_sec < b.tv_sec);
+
+    if (res == 0)
+        return (a.tv_nsec > b.tv_nsec) - (a.tv_nsec < b.tv_nsec);
+
+    return res;
+}
+
+static inline int str_eq(const char *str_a, const char *str_b)
+{
+    for (; *str_a && *str_b; ++str_a, ++str_b) {
+        if (*str_a != *str_b)
+            return 0;
+    }
+
+    return *str_a == *str_b;
+}
+
+static inline int contains(const char *str, int argc, char *argv[])
+{
+    for (int i = 0; i < argc; ++i) {
+        if (str_eq(argv[i], str))
+            return 1;
+    }
+
+    return 0;
+}
+
+static inline int find(const char *str, int count, const char **list)
+{
+    for (int i = 0; i < count; ++i) {
+        if (str_eq(list[i], str))
+            return i;
+    }
+
+    return -1;
+}
+
+static inline file_time_t get_mod_time(const char *path)
+{
+    struct stat st = {0};
+
+    if (lstat(path, &st)) {
+        fprintf(stderr, "lstat(): %s\n", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
+    return (file_time_t) { st.st_mtime };
+}
+
+static inline int updated(mod_data_t *mod_data, const char *path)
+{
+    int index = find(path, mod_data->count, mod_data->paths);
+    file_time_t ft = get_mod_time(path);
+
+    if (index != -1) {
+        if (file_time_cmp(ft, mod_data->times[index]) == 0)
+            return 0;
+
+        mod_data->times[index] = ft;
+        return 1;
+    }
+
+    int capacity = mod_data->capacity;
+
+    if (mod_data->count == capacity) {
+        capacity = capacity ? capacity * 2 : 8;
+
+        size_t size = sizeof(const char *) * capacity;
+        const char **new_paths = realloc(mod_data->paths, size);
+        if (!new_paths) {
+            new_paths = malloc(size);
+            assert(new_paths);
+            memcpy(new_paths, mod_data->paths, mod_data->count * sizeof(const char *));
+            free(mod_data->paths);
+        }
+        mod_data->paths = new_paths;
+
+        size = sizeof(file_time_t) * capacity;
+        file_time_t *new_times = realloc(mod_data->times, size);
+        if (!new_times) {
+            new_times = malloc(size);
+            assert(new_times);
+            memcpy(new_times, mod_data->times, mod_data->count * sizeof(file_time_t));
+            free(mod_data->times);
+        }
+        mod_data->times = new_times;
+
+        mod_data->capacity = capacity;
+    }
+
+    mod_data->paths[mod_data->count] = path;
+    mod_data->times[mod_data->count] = ft;
+    mod_data->count++;
+
+    return 1;
+}
+
 
 #ifndef _WIN32
 
@@ -481,26 +681,6 @@ static inline int execute_w(const char *fmt, ...)
     va_end(args);
 
     return wait_on_exits(&pid, 1);
-}
-
-static inline int str_eq(const char *str_a, const char *str_b)
-{
-    for (; *str_a && *str_b; ++str_a, ++str_b) {
-        if (*str_a != *str_b)
-            return 0;
-    }
-
-    return *str_a == *str_b;
-}
-
-static inline int contains(const char *str, int argc, char *argv[])
-{
-    for (int i = 1; i < argc; ++i) {
-        if (str_eq(argv[i], str))
-            return 1;
-    }
-
-    return 0;
 }
 
 static inline const char **merge(const char *arr_1[], const char *arr_2[])
