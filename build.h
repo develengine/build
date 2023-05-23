@@ -229,7 +229,7 @@ static inline int find(const char *str, int count, const char **list)
     return -1;
 }
 
-static inline file_time_t get_mod_time(const char *path)
+static inline file_time_t mod_time(const char *path)
 {
     struct stat st = {0};
 
@@ -244,7 +244,7 @@ static inline file_time_t get_mod_time(const char *path)
 static inline int updated(mod_data_t *mod_data, const char *path)
 {
     int index = find(path, mod_data->count, mod_data->paths);
-    file_time_t ft = get_mod_time(path);
+    file_time_t ft = mod_time(path);
 
     if (index != -1) {
         if (file_time_cmp(ft, mod_data->times[index]) == 0)

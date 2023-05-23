@@ -43,7 +43,7 @@ int build(int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
-    if ((file_time_cmp(get_mod_time("build.c"), get_mod_time("build")) > 0)) {
+    if ((file_time_cmp(mod_time("build.c"), mod_time("build")) > 0)) {
         printf("recompiling build\n");
 
         if (exists("build.old")) {
