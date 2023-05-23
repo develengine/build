@@ -30,7 +30,6 @@ int build(int argc, char *argv[])
     if (res)
         return res;
 
-
     if (contains("run", argc, argv)) {
         printf("./%s:\n", out);
 
@@ -44,15 +43,28 @@ int build(int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
+    if ((file_time_cmp(get_mod_time("build.c"), get_mod_time("build")) > 0)) {
+        printf("recompiling build\n");
+
+        if (exists("build.old")) {
+            remove("build.old");
+        }
+
+        rename("build", "build.old");
+
+        const char *src[] = { "build.c", NULL };
+
+        compile_info_t info = { .output = "build", .source_files = src };
+
+        int res = compile_w(info);
+        if (res)
+            return res;
+
+        return execute_argv_w(argv);
+    }
+
+
     mod_data_load(&mod_data, NULL);
-
-    if (updated(&mod_data, "build.c")) {
-        printf("updated: build.c\n");
-    }
-
-    if (updated(&mod_data, "build.h")) {
-        printf("updated: build.h\n");
-    }
 
     build(argc, argv);
 

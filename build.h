@@ -3,7 +3,7 @@
 
 /* TODO:
  * [ ] file writing and loading
- * [ ] csv timestamp file for auto updating
+ * [X] timestamp file for auto updating
  * [X] add windows support
  * */
 
@@ -387,9 +387,9 @@ static inline pid_t compile(compile_info_t info)
     }
 
     if (pid == 0) {
-         execl("/bin/sh", "sh", "-c", buffer, NULL);
+        execl("/bin/sh", "sh", "-c", buffer, NULL);
 
-        fprintf(stderr, "execve(): %s\n", strerror(errno));
+        fprintf(stderr, "execl(): %s\n", strerror(errno));
         exit(EXIT_FAILURE);
     }
 
@@ -415,7 +415,7 @@ static inline int wait_on_exits(pid_t *pids, int count)
     return 0;
 }
 
-static inline pid_t execute_v(const char *fmt, va_list args)
+static inline pid_t execute_vargs(const char *fmt, va_list args)
 {
     /* construct command */
 
@@ -450,6 +450,30 @@ static inline pid_t execute_v(const char *fmt, va_list args)
         execl("/bin/sh", "sh", "-c", buffer, NULL);
 
         fprintf(stderr, "execve(): %s\n", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
+    return pid;
+}
+
+static inline int exists(const char *path)
+{
+    return access(path, F_OK) == 0;
+}
+
+static inline pid_t execute_argv(char *argv[])
+{
+    pid_t pid = fork();
+
+    if (pid == -1) {
+        fprintf(stderr, "fork(): %s\n", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
+    if (pid == 0) {
+        execv(argv[0], argv);
+
+        fprintf(stderr, "execv(): %s\n", strerror(errno));
         exit(EXIT_FAILURE);
     }
 
@@ -600,7 +624,7 @@ static inline int wait_on_exits(pid_t *pids, int count)
     return 0;
 }
 
-static inline pid_t execute_v(const char *fmt, va_list args)
+static inline pid_t execute_vargs(const char *fmt, va_list args)
 {
     /* construct command */
 
@@ -659,12 +683,18 @@ static inline int compile_w(compile_info_t info)
     return wait_on_exits(&pid, 1);
 }
 
+static inline pid_t execute_argv_w(char *argv[])
+{
+    pid_t pid = execute_argv(argv);
+    return wait_on_exits(&pid, 1);
+}
+
 static inline pid_t execute(const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
 
-    pid_t pid = execute_v(fmt, args);
+    pid_t pid = execute_vargs(fmt, args);
 
     va_end(args);
 
@@ -676,7 +706,7 @@ static inline int execute_w(const char *fmt, ...)
     va_list args;
     va_start(args, fmt);
 
-    pid_t pid = execute_v(fmt, args);
+    pid_t pid = execute_vargs(fmt, args);
 
     va_end(args);
 
