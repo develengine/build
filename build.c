@@ -44,9 +44,7 @@ int build(int argc, char *argv[])
 int main(int argc, char *argv[])
 {
     const char *build_files[] = { "build.c", NULL };
-
     int res = try_rebuild_self(build_files, argc, argv);
-
     if (res != -1)
         return res;
 
