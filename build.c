@@ -23,8 +23,9 @@ int build(int argc, char *argv[])
         .optimisations = RELEASE_FLAG,
 
         .source_files = source_files,
+
         .warnings = nice_warnings,
-		.warnings_off = nice_warnings_off,
+	.warnings_off = nice_warnings_off,
     };
 
     int res = compile_w(info);
