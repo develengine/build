@@ -741,4 +741,47 @@ static inline const char **merge(const char *arr_1[], const char *arr_2[])
     return new_arr;
 }
 
+static inline int try_rebuild_self(const char *build_files[], int argc, char *argv[])
+{
+    int needs_rebuild = 0;
+    file_time_t exe_time = mod_time(argv[0]);
+
+    for (int i = 0; build_files[i]; ++i) {
+        if (file_time_cmp(mod_time(build_files[i]), exe_time) > 0) {
+            needs_rebuild = 1;
+            break;
+        }
+    }
+
+    if (!needs_rebuild)
+        return -1;
+
+    printf("recompiling build program\n");
+
+    int exe_len = strlen(argv[0]);
+
+    char *move_dest = malloc(exe_len + 5);
+    assert(move_dest);
+
+    move_dest[exe_len + 0] = '.';
+    move_dest[exe_len + 1] = 'o';
+    move_dest[exe_len + 2] = 'l';
+    move_dest[exe_len + 3] = 'd';
+    move_dest[exe_len + 4] = '\0';
+
+    if (exists(move_dest)) {
+        remove(move_dest);
+    }
+
+    rename(argv[0], move_dest);
+
+    compile_info_t info = { .output = argv[0], .source_files = build_files };
+
+    int res = compile_w(info);
+    if (res)
+        return res;
+
+    return execute_argv_w(argv);
+}
+
 #endif // BUILD_H_

@@ -43,28 +43,15 @@ int build(int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
-    if ((file_time_cmp(mod_time("build.c"), mod_time("build")) > 0)) {
-        printf("recompiling build\n");
+    const char *build_files[] = { "build.c", NULL };
 
-        if (exists("build.old")) {
-            remove("build.old");
-        }
+    int res = try_rebuild_self(build_files, argc, argv);
 
-        rename("build", "build.old");
-
-        const char *src[] = { "build.c", NULL };
-
-        compile_info_t info = { .output = "build", .source_files = src };
-
-        int res = compile_w(info);
-        if (res)
-            return res;
-
-        return execute_argv_w(argv);
-    }
+    if (res != -1)
+        return res;
 
     mod_data_load(&mod_data, NULL);
-    int res = build(argc, argv);
+    res = build(argc, argv);
     mod_data_store(&mod_data, NULL);
 
     return res;
