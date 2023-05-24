@@ -4,3 +4,4 @@ program
 *.obj
 build.data
 build.old
+*.exe.old

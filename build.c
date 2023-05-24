@@ -20,15 +20,17 @@ int build(int argc, char *argv[])
     compile_info_t info = {
         .output = out,
         .std = "c17",
-        .optimisations = "2",
+        .optimisations = RELEASE_FLAG,
 
         .source_files = source_files,
         .warnings = nice_warnings,
+		.warnings_off = nice_warnings_off,
     };
 
     int res = compile_w(info);
     if (res)
         return res;
+
 
     if (contains("run", argc, argv)) {
         printf("./%s:\n", out);
@@ -39,7 +41,10 @@ int build(int argc, char *argv[])
         return execute_w("./%s", out);
 #endif // _WIN32
     }
+
+    return 0;
 }
+
 
 int main(int argc, char *argv[])
 {
